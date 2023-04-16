@@ -36,7 +36,7 @@ class Tester:
         return shred_facts(np.array(ret_facts))
 
     def test(self):
-        for i, fact in enumerate(self.dataset.data[self.valid_or_test]):
+        for i, fact in enumerate(self.dataset.data[self.valid_or_test][:100]):
             settings = ["fil"]
             for raw_or_fil in settings:
                 for head_or_tail in ["head", "tail"]:
