@@ -40,7 +40,7 @@ validation_idx = [str(int(args.save_each * (i + 1))) for i in range(args.ne // a
 best_mrr = -1.0
 best_index = '0'
 # In order to run on kaggle, try "/kaggle/working/models/"
-model_prefix = "models/" + args.model + "/" + args.dataset + "/" + params.str_() + "_"
+model_prefix = "/kaggle/working/models/" + args.model + "/" + args.dataset + "/" + params.str_() + "_"
 
 for idx in validation_idx:
     model_path = model_prefix + idx + ".chkpnt"
