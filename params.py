@@ -20,6 +20,9 @@ class Params:
         self.dropout = dropout
         self.se_prop = se_prop
 
+        self.pooling_method = 'avg'
+        self.num_neighbor_samples = 64
+
     def str_(self):
         return str(self.ne) + "_" + str(self.bsize) + "_" + str(self.lr) + "_" + str(self.reg_lambda) + "_" + str(
             self.s_emb_dim) + "_" + str(self.neg_ratio) + "_" + str(self.dropout) + "_" + str(
