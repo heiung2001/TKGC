@@ -23,6 +23,8 @@ class Dataset:
         for spl in ["train", "valid", "test"]:
             self.data[spl] = np.array(self.data[spl])
 
+        self.preprocess()
+
     def read_file(self,
                   filename: str):
         with open(filename, "r", encoding='utf8') as f:
@@ -50,7 +52,7 @@ class Dataset:
                 self.data[split][i] += date
 
     def num_ent(self):
-        return len(self.ent2id)
+        return len(np.unique(np.concatenate([self.data['train'][:, 0], self.data['train'][:, 2]])))
 
     def num_rel(self):
         return len(self.rel2id)
@@ -121,3 +123,18 @@ class Dataset:
 
     def was_last_batch(self):
         return self.start_batch == 0
+
+    def preprocess(self):
+        max_index = self.num_ent() - 1
+        indices = {
+            'valid': [True] * len(self.data['valid']),
+            'test': [True] * len(self.data['test'])
+        }
+
+        for spl in ['valid', 'test']:
+            data = self.data[spl]
+            for idx, triple in enumerate(data):
+                h, t = triple[0], triple[2]
+                if (h > max_index) or (t > max_index):
+                    indices[spl][idx] = False
+            self.data[spl] = self.data[spl][indices[spl]]
