@@ -3,6 +3,7 @@ import time
 import torch
 import torch.nn as nn
 from de_transe import DE_TransE
+from de_gnn import DE_Graph
 
 
 class Trainer:
