@@ -89,11 +89,10 @@ class DE_Graph(nn.Module):
         assign = ddict(list)
         neighbor_dict = ddict(int)
         for i, e in enumerate(entity):
-            num_neighbors = 8
-            if len(self.train_link[e.item()]) < num_neighbors:
+            if len(self.train_link[e.item()]) < self.params.num_neighbor_samples:
                 near = self.train_link[e.item()]
             else:
-                near = random.sample(self.train_link[e.item()], num_neighbors)
+                near = random.sample(self.train_link[e.item()], self.params.num_neighbor_samples)
             if len(near) == 0:
                 print(f"Entity {e} don't have any neighbors")
                 sys.exit(-1)
