@@ -9,29 +9,29 @@ class DE_TransE(torch.nn.Module):
         self.dataset = dataset
         self.params = params
 
-        self.ent_embs = nn.Embedding(dataset.num_ent(), params.s_emb_dim)
-        self.rel_embs = nn.Embedding(dataset.num_rel(), params.s_emb_dim + params.t_emb_dim)
+        self.ent_embs = nn.Embedding(dataset.num_ent(), params.s_emb_dim).cuda()
+        self.rel_embs = nn.Embedding(dataset.num_rel(), params.s_emb_dim + params.t_emb_dim).cuda()
 
         nn.init.xavier_uniform_(self.ent_embs.weight)
         nn.init.xavier_uniform_(self.rel_embs.weight)
 
-        self.m_freq = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim)
-        self.d_freq = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim)
-        self.y_freq = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim)
+        self.m_freq = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim).cuda()
+        self.d_freq = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim).cuda()
+        self.y_freq = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim).cuda()
         nn.init.xavier_uniform_(self.m_freq.weight)
         nn.init.xavier_uniform_(self.d_freq.weight)
         nn.init.xavier_uniform_(self.y_freq.weight)
 
-        self.m_phi = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim)
-        self.d_phi = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim)
-        self.y_phi = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim)
+        self.m_phi = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim).cuda()
+        self.d_phi = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim).cuda()
+        self.y_phi = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim).cuda()
         nn.init.xavier_uniform_(self.m_phi.weight)
         nn.init.xavier_uniform_(self.d_phi.weight)
         nn.init.xavier_uniform_(self.y_phi.weight)
 
-        self.m_amp = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim)
-        self.d_amp = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim)
-        self.y_amp = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim)
+        self.m_amp = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim).cuda()
+        self.d_amp = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim).cuda()
+        self.y_amp = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim).cuda()
         nn.init.xavier_uniform_(self.m_amp.weight)
         nn.init.xavier_uniform_(self.d_amp.weight)
         nn.init.xavier_uniform_(self.y_amp.weight)
