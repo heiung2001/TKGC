@@ -7,54 +7,54 @@ import torch.nn.functional as F
 from collections import defaultdict as ddict
 
 
-class DE_Graph(nn.Module):
+class DE_TGraph(nn.Module):
     def __init__(self, dataset, params):
-        super(DE_Graph, self).__init__()
+        super(DE_TGraph, self).__init__()
         self.dataset = dataset
         self.params  = params
 
         self.train_link = self.get_link()
         self.gold_rels  = self.get_gold_relations()
 
-        self.ent_embs = nn.Embedding(dataset.num_ent(), params.s_emb_dim)
-        self.rel_embs = nn.Embedding(dataset.num_rel(), params.s_emb_dim+params.t_emb_dim)
+        self.ent_embs = nn.Embedding(dataset.num_ent(), params.s_emb_dim).cuda()
+        self.rel_embs = nn.Embedding(dataset.num_rel(), params.s_emb_dim+params.t_emb_dim).cuda()
         nn.init.xavier_uniform_(self.ent_embs.weight)
         nn.init.xavier_uniform_(self.rel_embs.weight)
 
-        self.m_freq = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim)
-        self.d_freq = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim)
-        self.y_freq = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim)
+        self.m_freq = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim).cuda()
+        self.d_freq = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim).cuda()
+        self.y_freq = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim).cuda()
         nn.init.xavier_uniform_(self.m_freq.weight)
         nn.init.xavier_uniform_(self.d_freq.weight)
         nn.init.xavier_uniform_(self.y_freq.weight)
 
-        self.m_phi = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim)
-        self.d_phi = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim)
-        self.y_phi = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim)
+        self.m_phi = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim).cuda()
+        self.d_phi = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim).cuda()
+        self.y_phi = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim).cuda()
         nn.init.xavier_uniform_(self.m_phi.weight)
         nn.init.xavier_uniform_(self.d_phi.weight)
         nn.init.xavier_uniform_(self.y_phi.weight)
 
-        self.m_amp = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim)
-        self.d_amp = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim)
-        self.y_amp = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim)
+        self.m_amp = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim).cuda()
+        self.d_amp = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim).cuda()
+        self.y_amp = nn.Embedding(self.dataset.num_ent(), self.params.t_emb_dim).cuda()
         nn.init.xavier_uniform_(self.m_amp.weight)
         nn.init.xavier_uniform_(self.d_amp.weight)
         nn.init.xavier_uniform_(self.y_amp.weight)
 
-        self.encode = Encoder(params, dataset.num_rel())
+        self.encode = Encoder(params, dataset.num_rel()).cuda()
         self.time_nl = torch.sin
 
     def forward(self, heads, rels, tails, years, months, days):
         set_of_entities = torch.cat([heads, tails]).unique()
         neighbor, neighbor_dict, assign = self.get_context(set_of_entities)
 
-        neighbor_idx = torch.tensor([e for e, _, _, _ in neighbor], dtype=torch.long)
+        neighbor_idx = torch.tensor([e for e, _, _, _ in neighbor], dtype=torch.long).cuda()
         neighbor_emb = self.ent_embs(neighbor_idx)
 
-        neighbor_y_idx = torch.tensor([y for _, y, _, _ in neighbor], dtype=torch.long).view(-1, 1)
-        neighbor_m_idx = torch.tensor([m for _, _, m, _ in neighbor], dtype=torch.long).view(-1, 1)
-        neighbor_d_idx = torch.tensor([d for _, _, _, d in neighbor], dtype=torch.long).view(-1, 1)
+        neighbor_y_idx = torch.tensor([y for _, y, _, _ in neighbor], dtype=torch.long).view(-1, 1).cuda()
+        neighbor_m_idx = torch.tensor([m for _, _, m, _ in neighbor], dtype=torch.long).view(-1, 1).cuda()
+        neighbor_d_idx = torch.tensor([d for _, _, _, d in neighbor], dtype=torch.long).view(-1, 1).cuda()
         neighbor_time_emb = self.get_time_embedd(neighbor_idx, neighbor_y_idx, neighbor_m_idx, neighbor_d_idx)
 
         eemb = torch.cat([neighbor_emb, neighbor_time_emb], dim=1)
@@ -72,7 +72,7 @@ class DE_Graph(nn.Module):
             t.append(edict[tails[i].item()])
         h = torch.cat(h, dim=0)
         t = torch.cat(t, dim=0)
-        r = self.rel_embs(torch.tensor(r, dtype=torch.long))
+        r = self.rel_embs(torch.tensor(r, dtype=torch.long).cuda())
 
         scores = h + r - t
         scores = F.dropout(scores, p=self.params.dropout, training=self.training)
@@ -130,8 +130,8 @@ class Encoder(nn.Module):
         super(Encoder, self).__init__()
         self.params = params
 
-        self.transform = TransitionLayer(params.s_emb_dim+params.t_emb_dim, rel_num)
-        self.pooling   = PoolingLayer(params.pooling_method)
+        self.transform = TransitionLayer(params.s_emb_dim+params.t_emb_dim, rel_num).cuda()
+        self.pooling   = PoolingLayer(params.pooling_method).cuda()
 
     def forward(self, x, neighbor_entities, neighbor_dict, assign, entities, relations):
         if len(neighbor_dict) == 1:
@@ -165,9 +165,9 @@ class TransitionBlock(nn.Module):
     def __init__(self, dim):
         super(TransitionBlock, self).__init__()
 
-        self.linear = nn.Linear(dim, dim)
-        self.norm   = nn.BatchNorm1d(dim)
-        self.act    = nn.ReLU()
+        self.linear = nn.Linear(dim, dim).cuda()
+        self.norm   = nn.BatchNorm1d(dim).cuda()
+        self.act    = nn.ReLU().cuda()
 
     def forward(self, x):
         z = self.linear(x)
@@ -182,10 +182,10 @@ class TransitionLayer(nn.Module):
         self.rel_size = rel_size
 
         self.transformH = nn.ModuleList(
-            [TransitionBlock(dim) for _ in range(rel_size)]
+            [TransitionBlock(dim).cuda() for _ in range(rel_size)]
         )
         self.transformT = nn.ModuleList(
-            [TransitionBlock(dim) for _ in range(rel_size)]
+            [TransitionBlock(dim).cuda() for _ in range(rel_size)]
         )
 
     def forward(self, rel_spaces, assignR, result):
