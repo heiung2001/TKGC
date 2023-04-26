@@ -36,14 +36,15 @@ class Tester:
         return shred_facts(np.array(ret_facts))
 
     def test(self):
-        for i, fact in enumerate(self.dataset.data[self.valid_or_test][:100]):
-            settings = ["fil"]
-            for raw_or_fil in settings:
-                for head_or_tail in ["head", "tail"]:
-                    heads, rels, tails, years, months, days = self.replace_and_shred(fact, raw_or_fil, head_or_tail)
-                    sim_scores = self.model(heads, rels, tails, years, months, days).cpu().data.numpy()
-                    rank = self.get_rank(sim_scores)
-                    self.measure.update(rank, raw_or_fil)
+        with torch.no_grad():
+            for i, fact in enumerate(self.dataset.data[self.valid_or_test][:100]):
+                settings = ["fil"]
+                for raw_or_fil in settings:
+                    for head_or_tail in ["head", "tail"]:
+                        heads, rels, tails, years, months, days = self.replace_and_shred(fact, raw_or_fil, head_or_tail)
+                        sim_scores = self.model(heads, rels, tails, years, months, days).cpu().data.numpy()
+                        rank = self.get_rank(sim_scores)
+                        self.measure.update(rank, raw_or_fil)
 
         self.measure.print_()
         print("~~~~~~~~~~~~~")
