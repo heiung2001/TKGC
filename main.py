@@ -1,8 +1,16 @@
 import argparse
+import random
+import numpy as np
+import torch
 from dataset import Dataset
 from trainer import Trainer
 from tester import Tester
 from params import Params
+
+SEED = 42
+random.seed(SEED)
+np.random.seed(SEED)
+torch.manual_seed(SEED)
 
 desc = "Temporal KG Completion Methods"
 parser = argparse.ArgumentParser(description=desc)
