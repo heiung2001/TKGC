@@ -3,7 +3,7 @@ import numpy as np
 
 
 def shred_facts(batch):
-    np_batch = np.array(batch)
+    np_batch = np.concatenate(batch, axis=0)
     heads = torch.tensor(np_batch[:, 0]).long()
     rels = torch.tensor(np_batch[:, 1]).long()
     tails = torch.tensor(np_batch[:, 2]).long()
