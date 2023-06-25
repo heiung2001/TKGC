@@ -1,140 +1,87 @@
-import numpy as np
-from scripts import shred_facts
+import os
+from utils.helper import shred_facts
+from torch.utils.data import DataLoader, Dataset
+from datetime import datetime
 
 
-class Dataset:
-    def __init__(self,
-                 ds_name: str):
-        self.name = ds_name
-        self.ds_path = "datasets/" + ds_name.lower() + "/"
-        self.ent2id = {}
-        self.rel2id = {}
-        self.data = {"train": self.read_file(self.ds_path + "train.txt"),
-                     "valid": self.read_file(self.ds_path + "valid.txt"),
-                     "test": self.read_file(self.ds_path + "test.txt")}
+class TemporalKGDataset(Dataset):
+    ent2id  = dict()
+    rel2id  = dict()
+    date2id = dict()
 
-        self.start_batch = 0
-        self.all_facts_as_tuples = None
+    def __init__(self, kg_root, file_name):
+        super(TemporalKGDataset, self).__init__()
+        self.kg_root = kg_root
+        self.file_name = file_name
 
-        self.convert_times()
+        self.facts = self._read_kg()
 
-        self.all_facts_as_tuples = set([tuple(d) for d in self.data["train"] + self.data["valid"] + self.data["test"]])
+    def __len__(self):
+        return len(self.facts)
 
-        for spl in ["train", "valid", "test"]:
-            self.data[spl] = np.array(self.data[spl])
+    def __getitem__(self, idx):
+        return self.facts[idx]
 
-        self.preprocess()
+    def _read_kg(self):
+        data_path = os.path.join(self.kg_root, self.file_name)
+        with open(data_path, 'r', encoding='utf-8') as f:
+            kg = f.readlines()
 
-    def read_file(self,
-                  filename: str):
-        with open(filename, "r", encoding='utf8') as f:
-            data = f.readlines()
+        facts = list()
+        for quadruple in kg:
+            s, p, o, t = quadruple.strip().split('\t')
 
-        facts = []
-        for line in data:
-            elements = line.strip().split("\t")
+            subject_id   = self.__get_ent_id(s)
+            predicate_id = self.__get_rel_id(p)
+            object_id    = self.__get_ent_id(o)
 
-            head_id = self.get_ent_id(elements[0])
-            rel_id = self.get_rel_id(elements[1])
-            tail_id = self.get_ent_id(elements[2])
-            timestamp = elements[3]
-
-            facts.append([head_id, rel_id, tail_id, timestamp])
-
+            facts.append([subject_id, predicate_id, object_id, t])
+        facts = self.__get_date_id(facts)
         return facts
 
-    def convert_times(self):
-        for split in ["train", "valid", "test"]:
-            for i, fact in enumerate(self.data[split]):
-                fact_date = fact[-1]
-                self.data[split][i] = self.data[split][i][:-1]
-                date = list(map(float, fact_date.split("-")))
-                self.data[split][i] += date
+    @classmethod
+    def __get_date_id(cls, facts):
+        time_space = set()
+        for i, fact in enumerate(facts):
+            date = fact[-1]
+            time_space.add(date)
 
-    def num_ent(self):
-        return len(np.unique(np.concatenate([self.data['train'][:, 0], self.data['train'][:, 2]])))
+            facts[i] = facts[i][:-1]
+            date = list(map(float, date.split('-')))
+            facts[i] += date
+        time_space = sorted(time_space, key=lambda x: datetime.strptime(x, '%Y-%m-%d'))
+        time_space = [tuple(map(float, d.split('-'))) for d in time_space]
+        cls.date2id = {t: i for i, t in enumerate(time_space)}
 
-    def num_rel(self):
-        return len(self.rel2id)
-
-    def get_ent_id(self,
-                   ent_name):
-        if ent_name in self.ent2id:
-            return self.ent2id[ent_name]
-        self.ent2id[ent_name] = len(self.ent2id)
-        return self.ent2id[ent_name]
-
-    def get_rel_id(self,
-                   rel_name):
-        if rel_name in self.rel2id:
-            return self.rel2id[rel_name]
-        self.rel2id[rel_name] = len(self.rel2id)
-        return self.rel2id[rel_name]
-
-    def next_pos_batch(self,
-                       batch_size):
-        if self.start_batch + batch_size > len(self.data["train"]):
-            ret_facts = self.data["train"][self.start_batch:]
-            self.start_batch = 0
-        else:
-            ret_facts = self.data["train"][self.start_batch: self.start_batch + batch_size]
-            self.start_batch += batch_size
-        return ret_facts
-
-    def add_neg_facts(self,
-                      bp_facts,
-                      neg_ratio):
-        ex_per_pos = 2 * neg_ratio + 2
-        facts = np.repeat(np.copy(bp_facts), ex_per_pos, axis=0)
-        for i in range(bp_facts.shape[0]):
-            s1 = i * ex_per_pos + 1
-            e1 = s1 + neg_ratio
-            s2 = e1 + 1
-            e2 = s2 + neg_ratio
-
-            facts[s1:e1, 0] = (facts[s1:e1, 0] + np.random.randint(low=1, high=self.num_ent(),
-                                                                   size=neg_ratio)) % self.num_ent()
-            facts[s2:e2, 2] = (facts[s2:e2, 2] + np.random.randint(low=1, high=self.num_ent(),
-                                                                   size=neg_ratio)) % self.num_ent()
-
+        for i, fact in enumerate(facts):
+            date = fact[-3:]
+            date_id = cls.date2id[tuple(date)]
+            facts[i].append(date_id)
         return facts
 
-    def add_neg_facts2(self,
-                       bp_facts,
-                       neg_ratio):
-        pos_neg_group_size = 1 + neg_ratio
-        facts1 = np.repeat(np.copy(bp_facts), pos_neg_group_size, axis=0)
-        facts2 = np.copy(facts1)
-        rand_nums1 = np.random.randint(low=1, high=self.num_ent(), size=facts1.shape[0])
-        rand_nums2 = np.random.randint(low=1, high=self.num_ent(), size=facts2.shape[0])
+    @classmethod
+    def __get_ent_id(cls, ent_name):
+        if ent_name in cls.ent2id:
+            return cls.ent2id[ent_name]
+        cls.ent2id[ent_name] = len(cls.ent2id)
+        return cls.ent2id[ent_name]
 
-        for i in range(facts1.shape[0] // pos_neg_group_size):
-            rand_nums1[i * pos_neg_group_size] = 0
-            rand_nums2[i * pos_neg_group_size] = 0
+    @classmethod
+    def __get_rel_id(cls, rel_name):
+        if rel_name in cls.rel2id:
+            return cls.rel2id[rel_name]
+        cls.rel2id[rel_name] = len(cls.rel2id)
+        return cls.rel2id[rel_name]
 
-        facts1[:, 0] = (facts1[:, 0] + rand_nums1) % self.num_ent()
-        facts2[:, 2] = (facts2[:, 2] + rand_nums2) % self.num_ent()
-        return np.concatenate((facts1, facts2), axis=0)
 
-    def next_batch(self, batch_size, neg_ratio=1):
-        bp_facts = self.next_pos_batch(batch_size)
-        batch = shred_facts(self.add_neg_facts2(bp_facts, neg_ratio))
-        return batch
+if __name__ == "__main__":
+    train_dataset = TemporalKGDataset(r'data\icews14', 'train.txt')
+    val_dataset   = TemporalKGDataset(r'data\icews14', 'valid.txt')
+    test_dataset  = TemporalKGDataset(r'data\icews14', 'test.txt')
 
-    def was_last_batch(self):
-        return self.start_batch == 0
+    batch_size = 5
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, collate_fn=shred_facts)
+    val_loader   = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, collate_fn=shred_facts)
+    test_loader  = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=shred_facts)
 
-    def preprocess(self):
-        max_index = self.num_ent() - 1
-        indices = {
-            'valid': [True] * len(self.data['valid']),
-            'test': [True] * len(self.data['test'])
-        }
-
-        for spl in ['valid', 'test']:
-            data = self.data[spl]
-            for idx, triple in enumerate(data):
-                h, t = triple[0], triple[2]
-                if (h > max_index) or (t > max_index):
-                    indices[spl][idx] = False
-            self.data[spl] = self.data[spl][indices[spl]]
+    heads, rels, tails, years, months, days, date_ids = next(iter(train_loader))
