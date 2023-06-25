@@ -1,6 +1,7 @@
 import os
-from utils.helper import shred_facts
-from torch.utils.data import DataLoader, Dataset
+import numpy as np
+
+from torch.utils.data import Dataset
 from datetime import datetime
 
 
@@ -9,10 +10,11 @@ class TemporalKGDataset(Dataset):
     rel2id  = dict()
     date2id = dict()
 
-    def __init__(self, kg_root, file_name):
+    def __init__(self, kg_root, file_name, neg_ratio):
         super(TemporalKGDataset, self).__init__()
         self.kg_root = kg_root
         self.file_name = file_name
+        self.neg_ratio = neg_ratio
 
         self.facts = self._read_kg()
 
@@ -20,7 +22,23 @@ class TemporalKGDataset(Dataset):
         return len(self.facts)
 
     def __getitem__(self, idx):
-        return self.facts[idx]
+        pos = self.facts[idx]
+        num_ent = len(self.ent2id)
+
+        pos_neg_group_size = 1 + self.neg_ratio
+        head_replaced = np.repeat(np.expand_dims(np.copy(pos), 0), pos_neg_group_size, axis=0)
+        tail_replaced = np.copy(head_replaced)
+
+        head_candidates = np.random.randint(low=1, high=num_ent, size=head_replaced.shape[0])
+        tail_candidates = np.random.randint(low=1, high=num_ent, size=tail_replaced.shape[0])
+        head_candidates[0] = 0
+        tail_candidates[0] = 0
+
+        head_replaced[:, 0] = (head_replaced[:, 0] + head_candidates) % num_ent
+        tail_replaced[:, 2] = (tail_replaced[:, 2] + tail_candidates) % num_ent
+        sample = np.concatenate([head_replaced, tail_replaced], axis=0)
+
+        return sample
 
     def _read_kg(self):
         data_path = os.path.join(self.kg_root, self.file_name)
@@ -73,15 +91,14 @@ class TemporalKGDataset(Dataset):
         cls.rel2id[rel_name] = len(cls.rel2id)
         return cls.rel2id[rel_name]
 
+    @classmethod
+    def get_num_ent(cls):
+        return len(cls.ent2id)
 
-if __name__ == "__main__":
-    train_dataset = TemporalKGDataset(r'data\icews14', 'train.txt')
-    val_dataset   = TemporalKGDataset(r'data\icews14', 'valid.txt')
-    test_dataset  = TemporalKGDataset(r'data\icews14', 'test.txt')
+    @classmethod
+    def get_num_rel(cls):
+        return len(cls.rel2id)
 
-    batch_size = 5
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, collate_fn=shred_facts)
-    val_loader   = DataLoader(val_dataset, batch_size=batch_size, shuffle=False, collate_fn=shred_facts)
-    test_loader  = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, collate_fn=shred_facts)
-
-    heads, rels, tails, years, months, days, date_ids = next(iter(train_loader))
+    @classmethod
+    def get_num_date(cls):
+        return len(cls.date2id)
