@@ -1,64 +1,48 @@
-import argparse
-import random
-import numpy as np
 import torch
-from dataset import Dataset
+import numpy as np
+import random
+from torch.utils.data import DataLoader
+from dataset import TemporalKGDataset
+from utils.params import Params
 from trainer import Trainer
 from tester import Tester
-from params import Params
+from models.proposed import ImprovedDESimplE
+from utils.helper import AugmentCollator
+
 
 SEED = 42
 random.seed(SEED)
 np.random.seed(SEED)
 torch.manual_seed(SEED)
 
-desc = "Temporal KG Completion Methods"
-parser = argparse.ArgumentParser(description=desc)
+params = Params()
 
-parser.add_argument('-dataset', help='Dataset', type=str, default='icews14', choices=['icews14', 'icews05-15', 'gdelt'])
-parser.add_argument('-model', help='Model', type=str, default='DE_TransE', choices=['DE_TransE', 'DE_SimplE', 'DE_TGraph', 'DE_SGraph'])
-parser.add_argument('-ne', help='Number of epochs', type=int, default=500)
-parser.add_argument('-bsize', help='Batch size', type=int, default=512, choices=[512])
-parser.add_argument('-lr', help='Learning rate', type=float, default=0.001)
-parser.add_argument('-reg_lambda', help='L2 regularization parameter', type=float, default=0.0)
-parser.add_argument('-emb_dim', help='Embedding dimension', type=int, default=100)
-parser.add_argument('-neg_ratio', help='Negative ratio', type=int, default=500, choices=[1, 2, 500])
-parser.add_argument('-dropout', help='Dropout probability', type=float, default=0.4, choices=[0.0, 0.2, 0.4])
-parser.add_argument('-save_each', help='Save model and validate each K epochs', type=int, default=20)
-parser.add_argument('-se_prop', help='Static embedding proportion', type=float, default=0.36)
+kg_name = "ivews14"
+kg_root = f"data/{kg_name}/"
+train_set = TemporalKGDataset(kg_root, 'train', params.neg_ratio)
+valid_set = TemporalKGDataset(kg_root, 'valid', params.neg_ratio)
+test_set  = TemporalKGDataset(kg_root, 'test', params.neg_ratio)
 
-args = parser.parse_args()
+params.num_ent = train_set.get_num_ent()
+params.num_rel = train_set.get_num_rel()
+params.num_date = train_set.get_num_date()
 
-dataset = Dataset(args.dataset)
+model = ImprovedDESimplE(
+    params.num_ent, params.num_rel, params.num_date,
+    params.s_emb_dim, params.t_emb_dim,
+    params.cycle, params.dropout
+)
 
-params = Params(ne=args.ne,
-                bsize=args.bsize,
-                lr=args.lr,
-                reg_lambda=args.reg_lambda,
-                emb_dim=args.emb_dim,
-                neg_ratio=args.neg_ratio,
-                dropout=args.dropout,
-                save_each=args.save_each,
-                se_prop=args.se_prop)
+optimizer = torch.optim.Adam(
+    model.parameters(),
+    lr=1e-3, weight_decay=params.reg_lambda
+)
 
-trainer = Trainer(dataset, params, args.model)
-trainer.train()
+trainer = Trainer(model, optimizer, train_set, valid_set, params, kg_name)
+tester = Tester(model, valid_set, test_set, params)
 
-validation_idx = [str(int(args.save_each * (i + 1))) for i in range(args.ne // args.save_each)]
-best_mrr = -1.0
-best_index = '0'
-# In order to run on kaggle, try "/kaggle/working/models/"
-model_prefix = "/kaggle/working/models/" + args.model + "/" + args.dataset + "/" + params.str_() + "_"
+for epoch in range(1, params.num_epoch + 1):
+    trainer.train_epoch(epoch)
 
-for idx in validation_idx:
-    model_path = model_prefix + idx + ".chkpnt"
-    tester = Tester(dataset, model_path, "valid")
-    mrr = tester.test()
-    if mrr > best_mrr:
-        best_mrr = mrr
-        best_index = idx
-
-print("Best epoch: " + best_index)
-model_path = model_prefix + best_index + ".chkpnt"
-tester = Tester(dataset, model_path, "test")
-tester.test()
+    if epoch % params.save_each == 0:
+        tester.validate_epoch(epoch)

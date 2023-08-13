@@ -1,69 +1,61 @@
 import os
-import time
 import torch
 import torch.nn as nn
-from de_transe import DE_TransE
-from de_gnn import DE_TGraph
-from de_sgnn import DE_SGraph
+import torch.optim as optim
+from torch.utils.data import DataLoader, Dataset
+from tqdm import tqdm
+from utils.params import Params
+from utils.helper import AugmentCollator
 
 
 class Trainer:
     def __init__(self,
-                 dataset,
-                 params,
-                 model_name):
-        instance_gen = globals()[model_name]
-        self.model_name = model_name
-        self.model = nn.DataParallel(instance_gen(dataset=dataset, params=params))
-        self.dataset = dataset
-        self.params = params
+                 model: nn.Module,
+                 optimizer: optim.Optimizer,
+                 train_set: Dataset,
+                 valid_set: Dataset,
+                 params: Params,
+                 kg_name: str) -> None:
 
-    def train(self):
+        self.kg_name = kg_name
+        self.model = model
+        self.optimizer = optimizer
+        self.params = params
+        self.criteria = nn.CrossEntropyLoss()
+
+        self.train_set = train_set
+        self.valid_set = valid_set
+
+        collate_fn = AugmentCollator(params.num_ent, params.neg_ratio)
+        self.train_loader = DataLoader(train_set, self.params.batch_size, shuffle=True, collate_fn=collate_fn)
+        self.valid_loader = DataLoader(valid_set, self.params.batch_size, shuffle=False, collate_fn=collate_fn)
+
+    def train_epoch(self,
+                    epoch: int) -> None:
         self.model.train()
 
-        optimizer = torch.optim.Adam(
-            self.model.parameters(),
-            lr=self.params.lr,
-            weight_decay=self.params.reg_lambda
-        )
+        running_loss = 0.0
+        with tqdm(self.train_loader, desc=f'Epoch {epoch}', unit='batch') as tepoch:
+            for batch_idx, batch in enumerate(tepoch):
+                self.optimizer.zero_grad()
 
-        loss_f = nn.CrossEntropyLoss()
+                num_examples = int(batch[0].shape[0] / (1 + self.params.neg_ratio))
+                scores = self.model(batch)
+                scores = scores.view(num_examples, self.params.neg_ratio + 1)
 
-        for epoch in range(1, self.params.ne + 1):
-            last_batch = False
-            total_loss = 0.0
-            start = time.time()
+                label = torch.zeros(num_examples).long()
+                loss = self.criteria(scores, label)
 
-            while not last_batch:
-                optimizer.zero_grad()
-
-                heads, rels, tails, years, months, days = self.dataset.next_batch(self.params.bsize,
-                                                                                  neg_ratio=self.params.neg_ratio)
-                last_batch = self.dataset.was_last_batch()
-
-                scores = self.model(heads, rels, tails, years, months, days)
-
-                # Added for softmax#
-                num_examples = int(heads.shape[0] / (1 + self.params.neg_ratio))
-                scores_reshaped = scores.view(num_examples, self.params.neg_ratio + 1)
-                l = torch.zeros(num_examples).long().cuda()
-                loss = loss_f(scores_reshaped, l)
                 loss.backward()
-                optimizer.step()
-                total_loss += loss.cpu().item()
+                self.optimizer.step()
+                running_loss += loss.cpu().item()
+                tepoch.set_postfix(loss=running_loss)
 
-            print(time.time() - start)
-            print("Loss in iteration " + str(epoch) + ": " + str(
-                total_loss) + "(" + self.model_name + "," + self.dataset.name + ")")
+        if epoch % self.params.save_each == 0:
+            self.save_model(epoch)
 
-            if epoch % self.params.save_each == 0:
-                self.save_model(epoch)
-
-    def save_model(self,
-                   chkpnt):
-        print("Saving the model")
-        directory = "/kaggle/working/models/" + self.model_name + "/" + self.dataset.name + "/"
+    def save_model(self, epoch):
+        directory = f"/kaggle/working/heiung/{self.params.model_name}/{self.kg_name}/"
         if not os.path.exists(directory):
             os.makedirs(directory)
-
-        torch.save(self.model, directory + self.params.str_() + "_" + str(chkpnt) + ".chkpnt")
+        torch.save(self.model, directory + self.params.str_() + '_' + str(epoch) + '.chkpnt')

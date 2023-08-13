@@ -26,10 +26,10 @@ class ImprovedDESimplE(nn.Module):
         self.time_nl = torch.sin
 
         # Base Embedding
-        self.ent_embs_h = nn.Embedding(num_ent, s_emb_dim).cuda()
-        self.ent_embs_t = nn.Embedding(num_ent, s_emb_dim).cuda()
-        self.rel_embs_f = nn.Embedding(num_rel, s_emb_dim + t_emb_dim).cuda()
-        self.rel_embs_i = nn.Embedding(num_rel, s_emb_dim + t_emb_dim).cuda()
+        self.ent_embs_h = nn.Embedding(num_ent, s_emb_dim)
+        self.ent_embs_t = nn.Embedding(num_ent, s_emb_dim)
+        self.rel_embs_f = nn.Embedding(num_rel, s_emb_dim + t_emb_dim)
+        self.rel_embs_i = nn.Embedding(num_rel, s_emb_dim + t_emb_dim)
 
         nn.init.xavier_uniform_(self.ent_embs_h.weight)
         nn.init.xavier_uniform_(self.ent_embs_t.weight)
@@ -45,12 +45,12 @@ class ImprovedDESimplE(nn.Module):
         nn.init.xavier_uniform_(self.rtc.weight)
 
         # Time Embedding (frequency)
-        self.m_freq_h = nn.Embedding(num_ent, t_emb_dim).cuda()
-        self.m_freq_t = nn.Embedding(num_ent, t_emb_dim).cuda()
-        self.d_freq_h = nn.Embedding(num_ent, t_emb_dim).cuda()
-        self.d_freq_t = nn.Embedding(num_ent, t_emb_dim).cuda()
-        self.y_freq_h = nn.Embedding(num_ent, t_emb_dim).cuda()
-        self.y_freq_t = nn.Embedding(num_ent, t_emb_dim).cuda()
+        self.m_freq_h = nn.Embedding(num_ent, t_emb_dim)
+        self.m_freq_t = nn.Embedding(num_ent, t_emb_dim)
+        self.d_freq_h = nn.Embedding(num_ent, t_emb_dim)
+        self.d_freq_t = nn.Embedding(num_ent, t_emb_dim)
+        self.y_freq_h = nn.Embedding(num_ent, t_emb_dim)
+        self.y_freq_t = nn.Embedding(num_ent, t_emb_dim)
 
         nn.init.xavier_uniform_(self.m_freq_h.weight)
         nn.init.xavier_uniform_(self.d_freq_h.weight)
@@ -60,12 +60,12 @@ class ImprovedDESimplE(nn.Module):
         nn.init.xavier_uniform_(self.y_freq_t.weight)
 
         # Time Embedding (phi)
-        self.m_phi_h = nn.Embedding(num_ent, t_emb_dim).cuda()
-        self.m_phi_t = nn.Embedding(num_ent, t_emb_dim).cuda()
-        self.d_phi_h = nn.Embedding(num_ent, t_emb_dim).cuda()
-        self.d_phi_t = nn.Embedding(num_ent, t_emb_dim).cuda()
-        self.y_phi_h = nn.Embedding(num_ent, t_emb_dim).cuda()
-        self.y_phi_t = nn.Embedding(num_ent, t_emb_dim).cuda()
+        self.m_phi_h = nn.Embedding(num_ent, t_emb_dim)
+        self.m_phi_t = nn.Embedding(num_ent, t_emb_dim)
+        self.d_phi_h = nn.Embedding(num_ent, t_emb_dim)
+        self.d_phi_t = nn.Embedding(num_ent, t_emb_dim)
+        self.y_phi_h = nn.Embedding(num_ent, t_emb_dim)
+        self.y_phi_t = nn.Embedding(num_ent, t_emb_dim)
 
         nn.init.xavier_uniform_(self.m_phi_h.weight)
         nn.init.xavier_uniform_(self.d_phi_h.weight)
@@ -75,12 +75,12 @@ class ImprovedDESimplE(nn.Module):
         nn.init.xavier_uniform_(self.y_phi_t.weight)
 
         # Time Embedding (amplitude)
-        self.m_amps_h = nn.Embedding(num_ent, t_emb_dim).cuda()
-        self.m_amps_t = nn.Embedding(num_ent, t_emb_dim).cuda()
-        self.d_amps_h = nn.Embedding(num_ent, t_emb_dim).cuda()
-        self.d_amps_t = nn.Embedding(num_ent, t_emb_dim).cuda()
-        self.y_amps_h = nn.Embedding(num_ent, t_emb_dim).cuda()
-        self.y_amps_t = nn.Embedding(num_ent, t_emb_dim).cuda()
+        self.m_amps_h = nn.Embedding(num_ent, t_emb_dim)
+        self.m_amps_t = nn.Embedding(num_ent, t_emb_dim)
+        self.d_amps_h = nn.Embedding(num_ent, t_emb_dim)
+        self.d_amps_t = nn.Embedding(num_ent, t_emb_dim)
+        self.y_amps_h = nn.Embedding(num_ent, t_emb_dim)
+        self.y_amps_t = nn.Embedding(num_ent, t_emb_dim)
 
         nn.init.xavier_uniform_(self.m_amps_h.weight)
         nn.init.xavier_uniform_(self.d_amps_h.weight)

@@ -10,10 +10,11 @@ class TemporalKGDataset(Dataset):
     rel2id  = dict()
     date2id = dict()
 
-    def __init__(self, kg_root, file_name, neg_ratio):
+    def __init__(self, kg_root, mode, neg_ratio):
         super(TemporalKGDataset, self).__init__()
         self.kg_root = kg_root
-        self.file_name = file_name
+        self.mode = mode
+        self.file_name = f"{mode}.txt"
         self.neg_ratio = neg_ratio
 
         self.facts = self._read_kg()
@@ -22,23 +23,26 @@ class TemporalKGDataset(Dataset):
         return len(self.facts)
 
     def __getitem__(self, idx):
-        pos = self.facts[idx]
-        num_ent = len(self.ent2id)
+        return self.facts[idx]
 
-        pos_neg_group_size = 1 + self.neg_ratio
-        head_replaced = np.repeat(np.expand_dims(np.copy(pos), 0), pos_neg_group_size, axis=0)
-        tail_replaced = np.copy(head_replaced)
-
-        head_candidates = np.random.randint(low=1, high=num_ent, size=head_replaced.shape[0])
-        tail_candidates = np.random.randint(low=1, high=num_ent, size=tail_replaced.shape[0])
-        head_candidates[0] = 0
-        tail_candidates[0] = 0
-
-        head_replaced[:, 0] = (head_replaced[:, 0] + head_candidates) % num_ent
-        tail_replaced[:, 2] = (tail_replaced[:, 2] + tail_candidates) % num_ent
-        sample = np.concatenate([head_replaced, tail_replaced], axis=0)
-
-        return sample
+    # def __getitem__(self, idx):
+    #     pos = self.facts[idx]
+    #     num_ent = len(self.ent2id)
+    #
+    #     pos_neg_group_size = 1 + self.neg_ratio
+    #     head_replaced = np.repeat(np.expand_dims(np.copy(pos), 0), pos_neg_group_size, axis=0)
+    #     tail_replaced = np.copy(head_replaced)
+    #
+    #     head_candidates = np.random.randint(low=1, high=num_ent, size=head_replaced.shape[0])
+    #     tail_candidates = np.random.randint(low=1, high=num_ent, size=tail_replaced.shape[0])
+    #     head_candidates[0] = 0
+    #     tail_candidates[0] = 0
+    #
+    #     head_replaced[:, 0] = (head_replaced[:, 0] + head_candidates) % num_ent
+    #     tail_replaced[:, 2] = (tail_replaced[:, 2] + tail_candidates) % num_ent
+    #     sample = np.concatenate([head_replaced, tail_replaced], axis=0)
+    #
+    #     return sample
 
     def _read_kg(self):
         data_path = os.path.join(self.kg_root, self.file_name)
